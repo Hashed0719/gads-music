@@ -5,6 +5,8 @@ import os
 
 import lavalink_server
 
+import alive
+
 REPLIT = False
 BOT_PREFIX = "m."
 
@@ -53,6 +55,7 @@ extensions = [
 #running bot
 if REPLIT:
     token = os.environ["token"]
+    alive.keep_alive()
 else:
     import dotenv
     dotenv.load_dotenv()
