@@ -1,13 +1,20 @@
-from doctest import REPORT_ONLY_FIRST_FAILURE
 import os
 import subprocess
 import threading
 import socket
 
+LAVALINK_SERVER_LOCAL = False
 
-DEFAULT_SERVER_PATH = "lavalink_server/"
-HOST = "localhost"
-PORT = 2333
+if LAVALINK_SERVER_LOCAL:
+    HOST = "localhost"
+    PORT = 2333
+    HTTPS = False
+else:
+    HOST = "lavalinkserverrepl.0212harsh.repl.co"
+    PORT = 443
+    HTTPS = True
+
+DEFAULT_SERVER_PATH = os.path.join(os.getcwd(), "lavalink_server")      #respect to main.py
 PASSWORD = "connect"
 
 
@@ -24,8 +31,6 @@ def invoke_at(path):
             
         return wrap
     return wrapper
-
-
 
 def initialize_server(path=None):
     if not path:

@@ -8,7 +8,9 @@ import lavalink_server
 import alive
 
 REPLIT = False
+LAVALINK_SERVER_LOCAL = False   #literals in music.py must be changed in create node
 BOT_PREFIX = "m."
+
 
 #instantiating Bot
 bot = commands.Bot(
@@ -32,14 +34,15 @@ async def on_message(msg :discord.Message):
 
 
 # #starting lavalink
-HOST = lavalink_server.HOST
-PORT = lavalink_server.PORT
+if LAVALINK_SERVER_LOCAL:
+    HOST = lavalink_server.HOST
+    PORT = lavalink_server.PORT
 
-if lavalink_server.port_in_use(HOST, PORT):
-    print("Skipping server start!")
-else:
-    lavalink_server.start()
-    lavalink_server.wait_until_running()
+    if lavalink_server.port_in_use(HOST, PORT):
+        print("Skipping server start!")
+    else:
+        lavalink_server.start()
+        lavalink_server.wait_until_running()
 
 
 #adding cogs

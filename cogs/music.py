@@ -53,9 +53,9 @@ class music_cog(commands.Cog):
 
     
         await wavelink.NodePool.create_node(bot=self.bot,
-                                            host="lavalinkserverrepl.0212harsh.repl.co",
-                                            port="443",
-                                            password="connect",
+                                            host=lavalink_server.HOST,
+                                            port=lavalink_server.PORT,
+                                            password=lavalink_server.PASSWORD,
                                             identifier="default-node",
                                             https=True
                                             )
