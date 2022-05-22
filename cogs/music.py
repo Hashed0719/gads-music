@@ -5,12 +5,16 @@ from wavelink import YouTubePlaylist, QueueEmpty, LoadTrackError
 
 import lavalink_server
 
-import asyncio, random, contextlib
+import random
 
 
 DEFAULT_MUSIC_CHANNEL_ID = 975312904444313610
-PLAYLIST = "https://www.youtube.com/playlist?list=PLXTA_UaIstySqQZBGXbNOQ0aefumZF3-T"
 BOT_247_STATE = None       #Whether the bot is in 24/7 song playing mode.
+PLAYLISTS = [
+    "https://www.youtube.com/playlist?list=PLXTA_UaIstySqQZBGXbNOQ0aefumZF3-T",
+    "https://www.youtube.com/playlist?list=PL2Zm_hoYG6LM-GSETav1ZVEz8jMz_8DXK",
+    "https://www.youtube.com/playlist?list=PL9tY0BWXOZFvf-PV4_lnH3qSJ-jkAmY0G"
+]
 
 
 class GraciePlayer():
@@ -22,14 +26,18 @@ class GraciePlayer():
     async def play(self):
         node = self.node
         player = self.node.players[0]
-
-        try:    
-            playlist = await node.get_playlist(cls=YouTubePlaylist, identifier=PLAYLIST)
-            playlist = playlist.tracks    
-            random.shuffle(playlist)
-            player.queue.extend(playlist[0:10], atomic=False)
+        
+        try:
+            playlist = []
+            for yt_playlist in PLAYLISTS:
+                from_node = await node.get_playlist(cls=YouTubePlaylist, identifier=yt_playlist)
+                playlist.extend(from_node.tracks)
         except LoadTrackError:
             print("couldn't find playlist")
+
+        random.shuffle(playlist)
+
+        player.queue.extend(playlist[0:10])
 
         track = player.queue.get()
         await player.play(track)
