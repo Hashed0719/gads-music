@@ -8,7 +8,7 @@ import lavalink_server
 import random
 
 
-DEFAULT_MUSIC_CHANNEL_ID = 975312904444313610
+MUSIC_CHANNEL_ID = 975312904444313610
 BOT_247_STATE = None       #Whether the bot is in 24/7 song playing mode.
 PLAYLISTS = [
     "https://www.youtube.com/playlist?list=PLXTA_UaIstySqQZBGXbNOQ0aefumZF3-T",
@@ -52,7 +52,6 @@ class music_cog(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
         bot.loop.create_task(self.connect_nodes())
 
     async def connect_nodes(self):
@@ -72,6 +71,11 @@ class music_cog(commands.Cog):
     async def on_wavelink_node_ready(self, node: wavelink.Node):
         """Event fired when a node has finished connecting."""
         print(f'Node: <{node.identifier}> is ready!')
+        channel = await self.bot.fetch_channel(MUSIC_CHANNEL_ID)
+        player: wavelink.Player = await channel.connect(cls=wavelink.Player)
+        gplayer = GraciePlayer(wavelink)
+        await gplayer.play()
+        BOT_247_STATE = True
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, player :wavelink.Player, track, reason = None):
@@ -82,12 +86,6 @@ class music_cog(commands.Cog):
             await player.play(track)
         except QueueEmpty:
             await GraciePlayer(wavelink).play()
-
-    # @commands.command()
-    # async def start(self, ctx: commands.Context):
-    #     if not ctx.voice_client:
-    #         pplayer :wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-    #         self.pplayer = pplayer
 
     @commands.command()
     async def start(self, ctx):
