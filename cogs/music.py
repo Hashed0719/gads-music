@@ -120,7 +120,7 @@ class music_cog(commands.Cog):
     async def on_wavelink_track_start(self, player, track: wavelink.Track):
         vc_text = self.bot.get_channel(constants.ids.vc_text)
         embed = mcembeds.playing(player, track)
-        await vc_text.send(embed=embed)
+        await vc_text.send(embed=embed, delete_after=track.length)
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, player :wavelink.Player, track, reason = None):
