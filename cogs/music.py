@@ -1,3 +1,4 @@
+import discord
 from discord.ext import commands
 
 import wavelink
@@ -30,7 +31,10 @@ class GraciePlayer():
         try:
             playlist = []
             for yt_playlist in PLAYLISTS:
-                from_node = await node.get_playlist(cls=YouTubePlaylist, identifier=yt_playlist)
+                try:
+                    from_node = await node.get_playlist(cls=YouTubePlaylist, identifier=yt_playlist)
+                except wavelink.errors.LavalinkException:
+                    continue    
                 playlist.extend(from_node.tracks)
         except LoadTrackError:
             print("couldn't find playlist")
@@ -72,7 +76,9 @@ class music_cog(commands.Cog):
         """Event fired when a node has finished connecting."""
         print(f'Node: <{node.identifier}> is ready!')
         channel = await self.bot.fetch_channel(MUSIC_CHANNEL_ID)
-        player: wavelink.Player = await channel.connect(cls=wavelink.Player)
+        if not node.players:
+            await channel.connect(cls=wavelink.Player)
+    
         gplayer = GraciePlayer(wavelink)
         await gplayer.play()
         BOT_247_STATE = True
