@@ -8,8 +8,9 @@ import lavalink_server
 
 import random
 
+import constants
 
-MUSIC_CHANNEL_ID = 975312904444313610
+
 BOT_247_STATE = None       #Whether the bot is in 24/7 song playing mode.
 PLAYLISTS = [
     "https://www.youtube.com/playlist?list=PLXTA_UaIstySqQZBGXbNOQ0aefumZF3-T",
@@ -34,6 +35,7 @@ class GraciePlayer():
                 try:
                     from_node = await node.get_playlist(cls=YouTubePlaylist, identifier=yt_playlist)
                 except wavelink.errors.LavalinkException:
+                    print("supressed wavelink.errors.LavalinkException")
                     continue    
                 playlist.extend(from_node.tracks)
         except LoadTrackError:
@@ -58,6 +60,9 @@ class music_cog(commands.Cog):
         self.bot = bot
         bot.loop.create_task(self.connect_nodes())
 
+        self.node = None  #assigned on wavelink.node.ready
+        self.player = None  #assigned on wavelink.node.ready
+
     async def connect_nodes(self):
         """Connect to our Lavalink nodes."""
         await self.bot.wait_until_ready()
@@ -75,13 +80,23 @@ class music_cog(commands.Cog):
     async def on_wavelink_node_ready(self, node: wavelink.Node):
         """Event fired when a node has finished connecting."""
         print(f'Node: <{node.identifier}> is ready!')
-        channel = await self.bot.fetch_channel(MUSIC_CHANNEL_ID)
-        if not node.players:
-            await channel.connect(cls=wavelink.Player)
-    
+        self.node = node
+
+        if self.bot.voice_clients:
+            await self.bot.voice_clients[0].disconnect(force=True)
+
+        channel = await self.bot.fetch_channel(constants.ids.voice_channel_247)
+        player = await channel.connect(cls=wavelink.Player)
+        self.player = player
+
         gplayer = GraciePlayer(wavelink)
         await gplayer.play()
         BOT_247_STATE = True
+    
+    @commands.Cog.listener()
+    async def on_wavelink_websocket_closed(self, player :wavelink.Player, reason, code):
+        await player.disconnect(force=True)
+        print(f"websocket close! player disconnected!, reason :{reason}, code:{code}")
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, player :wavelink.Player, track, reason = None):
@@ -92,6 +107,18 @@ class music_cog(commands.Cog):
             await player.play(track)
         except QueueEmpty:
             await GraciePlayer(wavelink).play()
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_exception(self, player: wavelink.Player, track, error):
+        next_track = player.queue.get()
+        await player.play(next_track)
+        print(f"track skipped becuase of exception: {error}")
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_stuck(self, player: wavelink.Player, track: wavelink.Track, threshold):
+        next_track = player.queue.get()
+        await player.play(next_track)
+        print(f"skipped {track.title} because of track stuck at threshold: {threshold}")
 
     @commands.command()
     async def start(self, ctx):
@@ -149,7 +176,13 @@ class music_cog(commands.Cog):
         await player.disconnect(force=True)
         await ctx.send("disconnected")
 
-
+    @commands.command()
+    async def check(self, ctx):
+        node: wavelink.Node = wavelink.NodePool.get_node(identifier="default-node")
+        print(node.players)
+        print(node.identifier)
+        player = node.get_player(constants.ids.guild_id)
+        await ctx.send(player.is_connected())
 
 def setup(bot):
     bot.add_cog(music_cog(bot))
