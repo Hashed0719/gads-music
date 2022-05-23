@@ -32,7 +32,6 @@ async def on_message(msg :discord.Message):
         await msg.channel.send(f"Hello There! my prefix is {prefix}")
     await bot.process_commands(msg)
 
-
 # #starting lavalink
 if LAVALINK_SERVER_LOCAL:
     HOST = lavalink_server.HOST
