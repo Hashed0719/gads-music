@@ -18,7 +18,7 @@ PLAYLISTS = [
 ]
 
 
-class GraciePlayer():
+class GraciePlayer(wavelink.Player):
     """Music class to play songs 24/7."""
 
     def __init__(self, wavelink :wavelink):
@@ -119,7 +119,7 @@ class music_cog(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, player, track: wavelink.Track):
         vc_text = self.bot.get_channel(constants.ids.vc_text)
-        embed = mcembeds.playing(player, track)
+        embed = mcembeds.play(player, track)
         await vc_text.send(embed=embed, delete_after=track.length)
 
     @commands.Cog.listener()
@@ -158,9 +158,7 @@ class music_cog(commands.Cog):
 
     @commands.command()
     async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack):
-        """Play a song with the given search query.
-        If not connected, connect to our voice channel.
-        """
+        """Play a song with the given search query."""
         if not ctx.voice_client:
             player: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
         else:
@@ -168,17 +166,25 @@ class music_cog(commands.Cog):
 
         player.text_channel = ctx.channel
 
-        if player.is_playing():
-            if player.is_247:
-                player.queue.put_at_front(search)
-                return
-            else:
-                player.queue.put(search)
-                return
-
         await player.play(search)
         player.playing = search
         
+    @commands.command(name="play next", aliases=["pn", "playnext"])
+    async def playnext(self, ctx, *, search: wavelink.YouTubeTrack):
+        """Plays your song right next to the current playing song."""
+
+        if not ctx.voice_client:
+            player: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        else:
+            player: wavelink.Player = ctx.voice_client
+
+        if player.is_playing():
+            player.queue.put_at_front(search)
+            return
+        else:
+            await player.play(search)
+            player.playing = search
+
     @commands.command()
     async def queue(self, ctx):
         player = wavelink.NodePool.get_node(identifier="default-node").players[0]
@@ -191,8 +197,10 @@ class music_cog(commands.Cog):
         try:
             track = player.queue.get()
             await player.play(track)
+            skipping_track = player.playing
             player.playing = track
-            await ctx.send("skipped")
+            embed = mcembeds.skipping(player, skipping_track)
+            await ctx.send(embed=embed)
             return
         except QueueEmpty:
             await GraciePlayer(wavelink).play_247()
