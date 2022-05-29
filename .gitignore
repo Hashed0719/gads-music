@@ -132,3 +132,6 @@ dmypy.json
 test.py
 test1.py
 test2.py
+
+# other
+lavalink_server/logs/
