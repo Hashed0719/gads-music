@@ -38,7 +38,7 @@ class GPlayer(wavelink.Player):
             await self.fillqueue_247(node, playlist_urls)
         
         track = self.queue_247.get()
-        self.play(track)
+        await self.play(track)
         self.psource = track
 
     async def fillqueue_247(self, node, urls):
@@ -47,9 +47,10 @@ class GPlayer(wavelink.Player):
         for url in urls:
             playlist_obj :wavelink.YouTubePlaylist = await node.get_playlist(cls=wavelink.YouTubePlaylist, identifier=url)
             tracks.extend(playlist_obj.tracks)
+        rand_tracks = random.choices(tracks, k=10)
         
-        self.queue_247.put(random.choices(tracks, k=10))
-        
+        [self.queue_247.put(track) for track in rand_tracks]
+
     async def pplay(self, track):
         await self.play(track)
         self.psource = track

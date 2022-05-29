@@ -10,8 +10,8 @@ if LAVALINK_SERVER_LOCAL:
     PORT = 2333
     HTTPS = False
 else:
-    HOST = "lavalinkserverrepl.0212harsh.repl.co"
-    # HOST = "lavalinkserverrepl2.0212harsh.repl.co"
+    # HOST = "lavalinkserverrepl.0212harsh.repl.co"
+    HOST = "lavalinkserverrepl2.0212harsh.repl.co"
     PORT = 443
     HTTPS = True
 
