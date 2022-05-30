@@ -69,6 +69,9 @@ class music_cog(commands.Cog):
         # await player.pdisconnect()
         print(f'Node: <{node.identifier}> is ready!')
 
+        if self.bot.voice_clients:
+            player = self.bot.voice_clients[0]
+            await player.disconnect(force=True)
         #starting 247
         player = await self.ensure_voice()
         channel = await self.bot.fetch_channel(constants.ids.vc_text)

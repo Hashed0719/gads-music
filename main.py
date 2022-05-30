@@ -7,7 +7,7 @@ import lavalink_server
 
 import alive
 
-REPLIT = False
+REPLIT = True
 LAVALINK_SERVER_LOCAL = False   #literals in music.py must be changed in create node
 BOT_PREFIX = "m."
 
