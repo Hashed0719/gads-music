@@ -47,6 +47,7 @@ if LAVALINK_SERVER_LOCAL:
 #adding cogs
 extensions = [
     "cogs._initManager",
+    "cogs.helpCommand",
     "cogs.general",
     "cogs.music"
 ]

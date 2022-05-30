@@ -1,63 +1,28 @@
+from tarfile import GNUTYPE_LONGLINK
 import discord
 from discord.ext import commands
 
 import wavelink
 from wavelink import YouTubePlaylist, QueueEmpty, LoadTrackError
 
-import random, asyncio
+import random, asyncio, logging as log
 
 import lavalink_server, constants
+# from membeds import MusicControlEmbeds as mcembeds, ControlView as cview
+from gplayer import GPlayer
 from membeds import MusicControlEmbeds as mcembeds
 
 
+log.basicConfig(
+    filename="data.log",
+    filemode="w",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=log.INFO
+)
+
+
 BOT_247_STATE = None       #Whether the bot is in 24/7 song playing mode.
-PLAYLISTS = [
-    "https://www.youtube.com/playlist?list=PLXTA_UaIstySqQZBGXbNOQ0aefumZF3-T",
-    "https://www.youtube.com/playlist?list=PL2Zm_hoYG6LM-GSETav1ZVEz8jMz_8DXK",
-    "https://www.youtube.com/playlist?list=PL9tY0BWXOZFvf-PV4_lnH3qSJ-jkAmY0G"
-]
-
-
-class GraciePlayer(wavelink.Player):
-    """Music class to play songs 24/7."""
-
-    def __init__(self, wavelink :wavelink):
-        self.node: wavelink.Node= wavelink.NodePool.get_node(identifier="default-node")
-        self.player: wavelink.Player= self.node.players[0]
-
-    async def play_247(self):
-        node = self.node
-        player = self.node.players[0]
-        
-        try:
-            playlist = []
-            for yt_playlist in PLAYLISTS:
-                try:
-                    from_node = await node.get_playlist(cls=YouTubePlaylist, identifier=yt_playlist)
-                except wavelink.errors.LavalinkException:
-                    print("supressed wavelink.errors.LavalinkException")
-                    continue    
-                playlist.extend(from_node.tracks)
-        except LoadTrackError:
-            print("couldn't find playlist")
-
-        playlist = random.choices(playlist, k=10)
-
-        player.queue.extend(playlist)
-
-        track = player.queue.get()
-        await player.play(track)
-        player.playing = track
-        player.is_247 = True
-
-    async def skip_track(self):
-        player = self.player
-        try:
-            next_track = player.queue.get()
-            player.playing = next_track
-        except QueueEmpty:
-            await self.play_247()
-
+PLAYLISTS = constants.PLAYLISTS   
 
 class music_cog(commands.Cog):
     """Music cog to hold Wavelink related commands and listeners."""
@@ -81,148 +46,100 @@ class music_cog(commands.Cog):
                                             port=lavalink_server.PORT,
                                             password=lavalink_server.PASSWORD,
                                             identifier="default-node",
-                                            https=True
+                                            https=lavalink_server.HTTPS
                                             )
         except wavelink.errors.NodeOccupied:
             print(f"Node 'default-node' already exists! skipping node create...")
+    
+    async def ensure_voice(self, channel = None) -> GPlayer:
+        if not self.bot.voice_clients:
+            channel: discord.VoiceChannel = await self.bot.fetch_channel(constants.ids.voice_channel_247)
+            player: GPlayer= await channel.connect(cls=GPlayer)
+        else:
+            player: GPlayer= self.bot.voice_clients[0]
+
+        return player
 
 
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, node: wavelink.Node):
+        log.info("invoked - wavelink - node ready event listener")
         """Event fired when a node has finished connecting."""
+        self.node = node
+        # await player.pdisconnect()
         print(f'Node: <{node.identifier}> is ready!')
 
-        if self.bot.voice_clients:
-            await self.bot.voice_clients[0].disconnect(force=True)
-
-        channel = await self.bot.fetch_channel(constants.ids.voice_channel_247)
-        player = await channel.connect(cls=wavelink.Player)
-        self.player = player
-
-        gplayer = GraciePlayer(wavelink)
-        await gplayer.play_247()
-        BOT_247_STATE = True
-    
-    @commands.Cog.listener()
-    async def on_wavelink_websocket_closed(self, player :wavelink.Player, reason, code):
-        await player.disconnect(force=True)
-        print(f"websocket close! player disconnected!, reason :{reason}, code:{code}")
-
-        try:
-            print("trying to connect node in <10> seconds.")
-            await asyncio.sleep(10)
-            await self.connect_nodes()
-        except:
-            print("couldn't connect node due to some error!")
-        await GraciePlayer(wavelink).play_247()
+        #starting 247
+        player = await self.ensure_voice()
+        channel = await self.bot.fetch_channel(constants.ids.vc_text)
+        player.is_playing_247 = True
+        player.text_channel = channel
+        await player.play_247(node, PLAYLISTS)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, player, track: wavelink.Track):
-        vc_text = self.bot.get_channel(constants.ids.vc_text)
-        embed = mcembeds.play(player, track)
-        await vc_text.send(embed=embed, delete_after=track.length)
-
+    async def on_wavelink_track_start(self, player :GPlayer, track :wavelink.Track):
+        log.info("invoked - wavelink - track start event listener")
+        channel :discord.TextChannel= player.text_channel
+        if hasattr(player, "play_message"):
+            message :discord.Message = player.play_message
+            await message.edit(view=None)
+        embed, view = mcembeds.play(player, track)
+        player.play_message = await channel.send(embed=embed, view=view)
+        
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, player :wavelink.Player, track, reason = None):
-        if reason != "FINISHED":
-            return
-        try:
-            track = player.queue.get()
-            await player.play(track)
-            player.playing = track
-        except QueueEmpty:
-            await GraciePlayer(wavelink).play_247()
+    async def on_wavelink_track_end(self, player: GPlayer, track: wavelink.Track, reason: str):
+        log.info("invoked - wavelink - track end event listener")
+        if reason == "REPLACED":
+            embed = mcembeds.skip(player, track)
+            channel = player.text_channel
+            await channel.send(embed=embed)
 
-    @commands.Cog.listener()
-    async def on_wavelink_track_exception(self, player: wavelink.Player, track, error):
-        next_track = player.queue.get()
-        await player.play(next_track)
-        print(f"track skipped becuase of exception: {error}")
+        if reason == "FINISHED":
+            if player.is_playing_247:
+                await player.play_247(self.node, PLAYLISTS)
+            else:
+                try:
+                    await player.pskip()
+                except QueueEmpty:
+                    player.is_playing_247 = True
+                    await player.play_247(self.node, PLAYLISTS)
 
-    @commands.Cog.listener()
-    async def on_wavelink_track_stuck(self, player: wavelink.Player, track: wavelink.Track, threshold=None):
-        next_track = player.queue.get()
-        await player.play(next_track)
-        print(f"skipped {track.title} because of track stuck at threshold: {threshold}")
+    @commands.command(aliases=["p"])
+    async def play(self, ctx: commands.Context, *, track: wavelink.YouTubeTrack):
+        """
+        Plays specified songs form youtube.
+        example:-`m.play gracie 21`
+        """
+        log.info("invoked - discord - play command")
 
-    @commands.command()
-    async def start(self, ctx):
-        if not ctx.voice_client:
-            player: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-        else:
-            player: wavelink.Player = ctx.voice_client
-
-        gplayer = GraciePlayer(wavelink)
-        await gplayer.play_247()
-        BOT_247_STATE = True
-
-    @commands.command()
-    async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack):
-        """Play a song with the given search query."""
-        if not ctx.voice_client:
-            player: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-        else:
-            player: wavelink.Player = ctx.voice_client
-
+        player: GPlayer = await self.ensure_voice()
+        await player.pplay(track)
         player.text_channel = ctx.channel
 
-        await player.play(search)
-        player.playing = search
+    @commands.command(aliases=["s"])
+    async def skip(self, ctx: commands.Context):
+        """Skips the current playing song."""
+        player: GPlayer= ctx.voice_client
+        await player.pskip()
         
-    @commands.command(name="play next", aliases=["pn", "playnext"])
-    async def playnext(self, ctx, *, search: wavelink.YouTubeTrack):
-        """Plays your song right next to the current playing song."""
-
-        if not ctx.voice_client:
-            player: wavelink.Player = await ctx.author.voice.channel.connect(cls=wavelink.Player)
-        else:
-            player: wavelink.Player = ctx.voice_client
-
+    @commands.command(aliases=["pn", "pnext"])
+    async def playnext(self, ctx, *, track :wavelink.YouTubeTrack):
+        """Queues the song to be played right next to the current playing song."""
+        log.info("invoked - discord - playnext command")
+        player = await self.ensure_voice()
+        
         if player.is_playing():
-            player.queue.put_at_front(search)
-            return
+            player.queue.put(track)
         else:
-            await player.play(search)
-            player.playing = search
-
-    @commands.command()
-    async def queue(self, ctx):
-        player = wavelink.NodePool.get_node(identifier="default-node").players[0]
-        await ctx.send(player.queue.count)
-
-    @commands.command()
-    async def skip(self, ctx):
-        node = wavelink.NodePool.get_node(identifier="default-node")
-        player = node.players[0]
-        try:
-            track = player.queue.get()
-            await player.play(track)
-            skipping_track = player.playing
-            player.playing = track
-            embed = mcembeds.skipping(player, skipping_track)
-            await ctx.send(embed=embed)
-            return
-        except QueueEmpty:
-            await GraciePlayer(wavelink).play_247()
-   
-    @commands.command()
-    async def stop(self, ctx):
-        player = wavelink.NodePool.get_node(identifier="default-node").players[0]
-        await player.stop()
-
-    @commands.command()
+            await player.pplay(track)
+        
+    @commands.command(aliases=["dc"])
     async def disconnect(self, ctx):
-        player = wavelink.NodePool.get_node(identifier="default-node").players[0]
-        await player.disconnect(force=True)
-        await ctx.send("disconnected")
+        """Stop playing song and disconnect the player."""
+        log.info("invoked - discord - disconnect command")
+        player :GPlayer = await self.ensure_voice()
+        await player.pdisconnect()
 
-    @commands.command()
-    async def check(self, ctx):
-        node: wavelink.Node = wavelink.NodePool.get_node(identifier="default-node")
-        print(node.players)
-        print(node.identifier)
-        player = node.get_player(constants.ids.guild_id)
-        await ctx.send(player.is_connected())
 
 def setup(bot):
     bot.add_cog(music_cog(bot))
