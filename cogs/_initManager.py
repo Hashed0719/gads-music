@@ -36,7 +36,7 @@ class manager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot 
     
-    @commands.command(name="manager", aliases = ["manage", "mng"])
+    @commands.command(name="manager", aliases = ["manage", "mng"], hidden=True)
     async def manager(self, ctx :commands.Context):
         """sends a view to restart cog, helpful for letting user see the changes 
         without having the whole code to be restarted again."""

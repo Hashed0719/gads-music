@@ -66,12 +66,14 @@ class music_cog(commands.Cog):
         log.info("invoked - wavelink - node ready event listener")
         """Event fired when a node has finished connecting."""
         self.node = node
-        player = await self.ensure_voice()
-        await player.pdisconnect()
+        # await player.pdisconnect()
         print(f'Node: <{node.identifier}> is ready!')
 
         #starting 247
+        player = await self.ensure_voice()
+        channel = await self.bot.fetch_channel(constants.ids.vc_text)
         player.is_playing_247 = True
+        player.text_channel = channel
         await player.play_247(node, PLAYLISTS)
 
     @commands.Cog.listener()
@@ -94,7 +96,7 @@ class music_cog(commands.Cog):
 
         if reason == "FINISHED":
             if player.is_playing_247:
-                player.play_247(self.node, PLAYLISTS)
+                await player.play_247(self.node, PLAYLISTS)
             else:
                 try:
                     await player.pskip()
@@ -102,16 +104,27 @@ class music_cog(commands.Cog):
                     player.is_playing_247 = True
                     await player.play_247(self.node, PLAYLISTS)
 
-    @commands.command()
-    async def play(self, ctx :commands.Context, *, track: wavelink.YouTubeTrack):
+    @commands.command(aliases=["p"])
+    async def play(self, ctx: commands.Context, *, track: wavelink.YouTubeTrack):
+        """
+        Plays specified songs form youtube.
+        example:-`m.play gracie 21`
+        """
         log.info("invoked - discord - play command")
 
         player: GPlayer = await self.ensure_voice()
         await player.pplay(track)
         player.text_channel = ctx.channel
 
-    @commands.command()
+    @commands.command(aliases=["s"])
+    async def skip(self, ctx: commands.Context):
+        """Skips the current playing song."""
+        player: GPlayer= ctx.voice_client
+        await player.pskip()
+        
+    @commands.command(aliases=["pn", "pnext"])
     async def playnext(self, ctx, *, track :wavelink.YouTubeTrack):
+        """Queues the song to be played right next to the current playing song."""
         log.info("invoked - discord - playnext command")
         player = await self.ensure_voice()
         
@@ -120,8 +133,9 @@ class music_cog(commands.Cog):
         else:
             await player.pplay(track)
         
-    @commands.command()
+    @commands.command(aliases=["dc"])
     async def disconnect(self, ctx):
+        """Stop playing song and disconnect the player."""
         log.info("invoked - discord - disconnect command")
         player :GPlayer = await self.ensure_voice()
         await player.pdisconnect()

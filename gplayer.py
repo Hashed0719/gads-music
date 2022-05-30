@@ -38,14 +38,16 @@ class GPlayer(wavelink.Player):
             await self.fillqueue_247(node, playlist_urls)
         
         track = self.queue_247.get()
+        log.info("GPlayer - started - playing track")
         await self.play(track)
         self.psource = track
 
     async def fillqueue_247(self, node, urls):
         """puts 10 songs in queue from playlists fetched from passed urls."""
         tracks = []
-        for url in urls:
-            playlist_obj :wavelink.YouTubePlaylist = await node.get_playlist(cls=wavelink.YouTubePlaylist, identifier=url)
+        for num, url in enumerate(urls):
+            log.info(f"GPlayer - requesting - playlist{num+1} from node")
+            playlist_obj :wavelink.YouTubePlaylist = await node.get_playlist(cls=wavelink.YouTubePlaylist ,identifier=url)
             tracks.extend(playlist_obj.tracks)
         rand_tracks = random.choices(tracks, k=10)
         
@@ -57,11 +59,23 @@ class GPlayer(wavelink.Player):
         self.is_playing_247 = False
     
     async def pskip(self):
-        """Plays next song in queue and returns it. Raises `QueueEmpty` if queue.is_empty()"""
-        next_track = self.queue.get()
+        """Plays next song in queue or queue_247 and returns it. returns None if queue.is_empty()"""
+        if self.is_playing_247:
+            try:
+                next_track = self.queue_247.get()
+            except QueueEmpty:
+                await self.play_247(self.node, constants.PLAYLISTS)
+                return
+        else:
+            try:
+                next_track = self.queue.get()
+            except QueueEmpty:
+                self.is_playing_247 = True
+                await self.play_247(self.node, constants.PLAYLISTS)
+                return
         await self.play(next_track)
         self.psource = next_track
-        return next_track
+
 
     async def pdisconnect(self):
         await self.disconnect(force=True)

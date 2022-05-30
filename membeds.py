@@ -9,6 +9,7 @@ from gplayer import GPlayer
 
 import logging as log
 
+import time
 
 class ControlView(View):
     def __init__(self, player :GPlayer, *items: Item, timeout = 180):
@@ -24,16 +25,15 @@ class ControlView(View):
         await self.player.pskip()
         await interaction.response.edit_message(view=None)
 
-
-
 class MusicControlEmbeds:
     """A class containing all the functions to create embeds for music playback."""
 
     def play(player :GPlayer, track :wavelink.Track) -> tuple[discord.Embed, discord.ui.View]:
         """Returns embed, view for track start"""
+        length = time.strftime("%M:%S", time.gmtime(track.length))
         embed = discord.Embed(
             # title=f"Now Playing...",
-            description=f"[{track.title}]",
+            description=f"[{track.title}]\n| {length}",
             color=discord.Colour.green()   
         )
         embed.set_author(name="Now Playing")
