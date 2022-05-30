@@ -8,8 +8,9 @@ import wavelink
 from gplayer import GPlayer
 
 import logging as log
-
 import time
+import typing
+
 
 class ControlView(View):
     def __init__(self, player :GPlayer, *items: Item, timeout = 180):
@@ -28,7 +29,7 @@ class ControlView(View):
 class MusicControlEmbeds:
     """A class containing all the functions to create embeds for music playback."""
 
-    def play(player :GPlayer, track :wavelink.Track) -> tuple[discord.Embed, discord.ui.View]:
+    def play(player :GPlayer, track :wavelink.Track) -> typing.Tuple[discord.Embed, discord.ui.View]:
         """Returns embed, view for track start"""
         length = time.strftime("%M:%S", time.gmtime(track.length))
         embed = discord.Embed(
