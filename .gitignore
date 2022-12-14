@@ -132,6 +132,7 @@ dmypy.json
 test.py
 test1.py
 test2.py
+i_forgot_python.py
 
 # other
 lavalink_server/logs/
